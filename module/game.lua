@@ -1770,7 +1770,7 @@ function GAME.refreshDailyChallengeText()
         local rev = str:match("r%S+")
         str = "Today's " .. (GAME.dailyState == 2 and "Ultra Combo: " or "Combo: ") .. str
         if rev and GAME.completion then str = str .. "   (" .. rev .. " = " .. (GAME.dailyState == 2 and "ultra " or "reversed ") .. rev:sub(2) .. ")" end
-        if GAME.dailyState == 2 then str = str:gsub("r" .. id, "u" .. id) end
+        if GAME.dailyState == 2 then str = str:gsub("r(%u+)", "u%1") end
         str = str .. "\nTry to get more ZP in one run using this mod combo.\n(Click to select them)"
     else
         str = "Oops! Today's mod combo is not available for you...\nComplete more mods to unlock some content."
