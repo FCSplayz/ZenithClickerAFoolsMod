@@ -2519,7 +2519,7 @@ function GAME.finish(reason)
             local unlockRev
             local reverseCountNum = 0
             for k, v in next, M do
-                if URM then v = v + 1 end
+                if v == 2 and URM then v = v + 1 end
                 if v > GAME.completion[k] then
                     if GAME.completion[k] == 0 then
                         if k == 'DP' then
