@@ -13,4 +13,7 @@ return {
     violin2 = 'assets/music/violin.ogg',
     
     damn = 'assets/music/damn`.ogg',
+
+    -- TERAIMP
+    tera = 'assets/music/tera.ogg',
 }

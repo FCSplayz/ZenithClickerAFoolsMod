@@ -3,8 +3,8 @@ return {
     ["apkCode"] = 010800,
     ["verCode"] = 010800,
 
-    ["appVer"] = "V1.8.0?-pre2",
-    ["verStr"] = "1.8.0?-pre2",
+    ["appVer"] = "V1.8.0?-pre2T",
+    ["verStr"] = "1.8.0?-pre2T",
 
     ["preReleaseNum"] = 2,
 }

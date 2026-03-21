@@ -74,6 +74,7 @@ local ins, rem = table.insert, table.remove
 ---@field chain number
 ---@field gigaspeed boolean
 ---@field gigaspeedEntered false | number time when enter
+---@field teramusic boolean
 ---@field atkBuffer number
 ---@field atkBufferCap number
 ---@field shuffleMessiness number | false
@@ -1088,6 +1089,10 @@ function GAME.addXP(xp)
             SFX.play('zenith_speedrun_start')
             GAME.refreshRPC()
         end
+        if GAME.gigaspeedEntered and not GAME.teramusic and GAME.rank >= TeraMusicReq[GAME.floor] then
+            GAME.startTeraAnim()
+            GAME.refreshRPC()
+        end
     else
         GAME.xpLockTimer = oldLockTimer
     end
@@ -1109,6 +1114,29 @@ function GAME.setGigaspeedAnim(on, finish)
     else
         TWEEN.new(function(t) GigaSpeed.alpha = lerp(s, 0, t) end):setDuration(finish and 6.26 or 3.55)
             :setUnique('giga'):run()
+    end
+end
+
+function GAME.startTeraAnim()
+    GAME.teramusic = true
+    --GAME.teraspeedFloor[GAME.floor] = true
+    --GAME.teraCount = GAME.teraCount + 1
+    GigaSpeed.isTera = true
+    TASK.removeTask_code(GAME.task_gigaspeed)
+    TASK.new(GAME.task_gigaspeed)
+    SFX.play('zenith_speedrun_start')
+    PlayBGM('tera', true)
+end
+
+function GAME.stopTeraspeed(mode)
+    GAME.teramusic = false
+    if mode == 'f10' then
+        GAME.teraComplete = true
+    end
+    if mode == 'drop' then
+        GAME.updateBgm('init')
+        --PlayBGM('f' .. max(GAME.floor, GAME.negFloor), true)
+        --GAME.teraLostHeight = GAME.roundHeight
     end
 end
 
@@ -2381,6 +2409,7 @@ function GAME.start()
     GAME.chain = 0
     GAME.gigaspeed = false
     GAME.gigaspeedEntered = false
+    GAME.teramusic = false
     GAME.atkBuffer = 0
     GAME.atkBufferCap = 8 + (M.DH == 1 and M.NH < 2 and 2 or 0)
     GAME.shuffleMessiness = false
@@ -2510,6 +2539,7 @@ function GAME.finish(reason)
     GAME.playing = false
     if M.DH == 2 then GAME.finishTime = love.timer.getTime() end
     GAME.life, GAME.life2 = 0, 0
+    GAME.teramusic = false
     GAME.currentTask = false
     
     local unlockFool
@@ -2877,6 +2907,7 @@ function GAME.finish(reason)
     ReleaseAchvBuffer()
 
     GAME.setGigaspeedAnim(false)
+    GAME.stopTeraspeed('drop')
     TASK.removeTask_code(task_startSpin)
     GAME.refreshLockState()
     GAME.refreshCurrentCombo()
@@ -2922,6 +2953,8 @@ function GAME.finish(reason)
     if M.AS > 0 then TWEEN.new(GAME.anim_resizeResetAS_rev):setDuration(GAME.slowmo and 2.6 or .26):setUnique('resizeResetAS'):run() end
     TWEEN.new(GAME.anim_setMenuHide_rev):setDuration(GAME.slowmo and 2.6 or .26):setUnique('uiHide'):run()
     GAME.refreshRPC()
+    TASK.removeTask_code(Task_MusicEnd)
+    TASK.new(Task_MusicEnd)
     GAME.updateBgm('finish')
     if reason ~= 'forfeit' then
         TASK.lock('cannotStart', 1)
@@ -3054,6 +3087,8 @@ function GAME.update(dt)
                         SFX.play('zenith_speedrun_end')
                         SFX.play('zenith_speedrun_end')
                         if MATH.between(GAME.height, Floors[9].top - 50, Floors[9].top) then IssueAchv('cut_off') end
+                    elseif GAME.teramusic and GAME.rank < TeraMusicReq[0] then
+                        GAME.stopTeraspeed('drop')
                     end
                     TEXTS.rank:set("R-" .. GAME.rank)
                     SFX.play('speed_down', .4 + GAME.xpLockLevel / 10)

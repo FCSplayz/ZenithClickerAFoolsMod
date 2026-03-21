@@ -513,6 +513,11 @@ TEXTS = { -- Font size can only be 30 and 50 here !!!
         COLOR.K, "A", COLOR.G, "S", COLOR.J, "P",
         COLOR.C, "E", COLOR.S, "E", COLOR.B, "D"
     }),
+    teraspeed  = GC.newText(FONT.get(50), { -- TERAIMP
+        COLOR.R, "T", COLOR.O, "E", COLOR.Y, "R",
+        COLOR.K, "A", COLOR.G, "S", COLOR.J, "P",
+        COLOR.C, "E", COLOR.S, "E", COLOR.B, "D",
+    }),
     gigatime   = GC.newText(FONT.get(50)),
     floorTime  = GC.newText(FONT.get(30)),
     rankTime   = GC.newText(FONT.get(30)),
@@ -723,6 +728,7 @@ GigaSpeed = {
     alpha = 0,
     bgAlpha = 0,
     textTimer = false,
+    isTera = false,
 }
 ImpactGlow = {}
 DeckPress = 0
@@ -777,6 +783,82 @@ BgmSets = {
     },
     assist = { 'arp', 'bass', 'guitar', 'pad', 'staccato', 'violin' },
 }
+
+---@enum (key) ZC.bgmName
+BgmData = {
+    tera = { meta = '4|4  240 BPM  C# Minor', bar = 4, bpm = 240, toneFix = 1, loop = { 76, 140 }, introLen = 2, teleport = { -1, 20 }, end1 = 140, end2 = 142, end3 = 144, end4 = 146 },
+    terar = { meta = '4|4  240 BPM  C# Minor', bar = 4, bpm = 240, toneFix = 1, loop = { 84 - 15.565, 172 - 15.565 }, teleport = { 0, 18 - 15.565 } },
+}
+
+BgmPlaying = false ---@type ZC.bgmName | false
+BgmLooping = false
+BgmNeedSkip = false
+BgmNeedStop = false
+
+function RevMusicMode()
+    return
+        URM and M.EX == 2 or                   -- uEX
+        GAME.anyRev and GAME.comboZP >= 2.6 or -- rev run with 2.6x ZP
+        GAME.anyUltra and GAME.comboZP >= 1.2  -- ultra run with 1.2x ZP
+end
+
+---@param name ZC.bgmName
+---@param force? boolean speedrun or music player
+function PlayBGM(name, force)
+    if GAME.teramusic and not force then return end
+
+    local last = BgmPlaying
+
+    if GAME.playing and RevMusicMode() then name = name .. 'r' end
+    --if name == 'fomgr' then name = 'fomg' end
+    --if name:sub(1, 2) == 'f0' then
+    --    BgmPlaying = 'f0'
+    --elseif name:sub(1, 2) == 'f1' and name:sub(1, 3) ~= 'f10' then
+    --    BgmPlaying = 'f1'
+    --else
+        BgmPlaying = name
+    --end
+
+    if not BgmData[BgmPlaying] then return end
+    BgmLooping = BgmData[BgmPlaying].loop
+    BgmNeedSkip = BgmData[BgmPlaying].teleport
+    BgmNeedStop = false
+
+    --if BgmPlaying == 'f0' then
+    --    BgmLooping = false
+    --    BGM.play(BgmSet.f0)
+    --    RefreshBGM(name)
+    --elseif BgmPlaying == 'f1' then
+    --    BGM.play(BgmSet.f1, force and '' or '-sdin')
+    --    local start = math.random(3, 5) * BgmData.f1.introLen
+    --    BgmNeedSkip[1] = start + BgmData.f1.introLen
+    --    BGM.set('all', 'seek', start)
+    --    RefreshBGM(name)
+    --elseif 
+    if name == 'tera' then --or name == 'terae' or name == 'teral' or name == 'terael'then
+        BGM.play(name, '-sdin')
+        --local startFrom
+        --if last then
+        --    ---@cast last string
+         --   startFrom = tonumber(last:match("%d+"))
+        --    if startFrom then startFrom = startFrom - 1 end
+        --end
+        --local start = (GAME.playing and GAME.floor or startFrom or math.random(0, 9)) * BgmData.tera.introLen
+        --BgmNeedSkip[1] = start + BgmData.tera.introLen
+        TASK.new(function()
+                BGM.set('all', 'seek', math.random(0, 9) * 2) 
+                RefreshBGM()
+                TASK.yieldT(2)
+                BGM.set('all', 'seek', 20)
+                RefreshBGM()
+            end
+        )
+    else
+        if BGM.play(name, force and '' or '-sdin') then
+            RefreshBGM()
+        end
+    end
+end
 
 UAN = os.date("!%m%d") == "0401"
 require 'module.game_data'
@@ -1245,6 +1327,162 @@ function RefreshButtonText()
     W = SCN.scenes.tower.widgetList.reset
     W.text = M.AS > 0 and 'SPIN' or 'RESET'
     W:reset()
+end
+
+function RefreshBGM(mode)
+    if not BGM.isPlaying() then return end
+    local pitch = M.GV < 0 and 2^(-1/2) or M.GV > 0 and 2 ^ ((URM and M.GV == 2 and 3 or M.GV) / 12) or 1
+    if not GAME.manualBGMPitch or GAME.height >= 1650 then
+        if GAME.slowmo then pitch = pitch / 2 end
+        if GAME.nightcore then pitch = pitch * 2 end
+        -- Trevor Smithy
+        if GAME.eslowmo then pitch = pitch * 2^(-1/2) end
+        if GAME.enightcore then pitch = pitch * 2 end
+        --
+    else
+        pitch = GAME.nightcore and GAME.manualBGMPitch or GAME.slowmo and 1/GAME.manualBGMPitch or pitch
+    end
+    local justBegin = BGM.tell() < 1
+    BGM.set('all', 'pitch', pitch, justBegin and 0 or .26)
+    BGM.set('all', 'highgain', M.IN == 0 and 1 or M.IN == 1 and .8 or not URM and .626 or .55, justBegin and 0 or .626)
+    if BgmPlaying == 'f0' then
+        local revMode = mode == 'f0r' or RevMusicMode()
+        BGM.set('all', 'volume', revMode and 0 or 1, 2.6)
+        -- Trevor Smithy > to ~=
+        BGM.set('expert', 'volume', M.EX > 0 and 1 or (URM and M.EX == -1 and M.NH < 2 and M.MS < 2 and M.GV < 2 and M.VL < 2 and M.DH < 2 and M.IN < 2 and M.AS < 2 and M.DP < 2) and 0.5 or 0, .26)
+        BGM.set('piano', 'volume', M.NH == 0 and 1 or M.NH == 1 and .26 or 0)
+        BGM.set('piano2', 'pitch', 2 * pitch, 0)
+        BGM.set('piano2', 'volume', (M.DP ~= 0 or VALENTINE and not revMode) and .626 or 0, .26)
+        BGM.set('violin', 'volume', M.DP == 2 and 1 or 0, .26)
+        BGM.set('violin2', 'volume', M.DP == 2 and 1 or 0, .26)
+        BGM.set('rev', 'volume', revMode and (M.DP ~= 0 and .5 or .7) or 0, revMode and 1.6 or 2.6)
+    elseif BgmPlaying == 'f1' then
+        local revMode = mode == 'f1r' or RevMusicMode()
+        BGM.set('f1', 'volume', 1)
+        BGM.set('f1ex', 'volume', M.EX > 0 and 1 or 0, 0)
+        BGM.set('f1rev', 'volume', revMode and 1 or 0, 0)
+    end
+end
+
+function Task_MusicEnd(manual)
+    BgmLooping = false
+    local D = BgmData[BgmPlaying]
+    local outroStart
+    --[[ if BgmPlaying == 'f1' then
+        outroStart = D.loop[2] + 4 * 60 / D.bpm
+        BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    elseif BgmPlaying == 'f2' then
+        outroStart = D.loop[2]
+        BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    elseif BgmPlaying == 'f3' then
+        if BGM.tell() < D.loop[1] then
+            outroStart = D.end1
+        else
+            outroStart = D.end2
+        end
+        BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    elseif BgmPlaying == 'f4' then
+        outroStart = D.loop[2]
+        BgmNeedStop = outroStart + 10 * 60 / D.bpm
+    elseif BgmPlaying == 'f5' then
+        outroStart = D.loop[2]
+        BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    elseif BgmPlaying == 'f6' then
+        outroStart = D.loop[2]
+        BgmNeedStop = outroStart + 4 * 60 / D.bpm
+    elseif BgmPlaying == 'f7' then
+        outroStart = D.loop[2]
+        BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    elseif BgmPlaying == 'f8' then
+        outroStart = D.loop[2]
+        BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    elseif BgmPlaying == 'f9' then
+        outroStart = D.loop[2]
+        BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    elseif BgmPlaying == 'f10' then
+        if BGM.tell() < 28 * 4 * 60 / D.bpm then
+            BGM.stop(4.2)
+            TASK.yieldT(4.2)
+        elseif BGM.tell() < 59 * 4 * 60 / D.bpm then
+            BGM.set('all', 'seek', 59 * 4 * 60 / D.bpm)
+            BgmNeedStop = BGM.tell() + 5 * 60 / D.bpm
+        elseif BGM.tell() < 77.25 * 4 * 60 / D.bpm then
+            BGM.stop(4.2)
+            TASK.yieldT(4.2)
+        else
+            outroStart = D.loop[2]
+            BgmNeedStop = outroStart + 8 * 60 / D.bpm
+        end
+    elseif BgmPlaying == 'fomg' then
+        if BGM.tell() > D.loop[1] then
+            outroStart = D.loop[2]
+            BgmNeedStop = outroStart + 13 * 60 / D.bpm
+        else
+            outroStart = D.loop[2] + 16 * 60 / D.bpm
+            BgmNeedStop = outroStart + 8 * 60 / D.bpm
+        end
+    elseif BgmPlaying == 'f1r' then
+        outroStart = D.loop[2] + 4 * 60 / D.bpm
+        BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    elseif BgmPlaying == 'f2r' then
+        outroStart = D.loop[2]
+        BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    elseif BgmPlaying == 'f3r' then
+        outroStart = D.loop[2]
+        BgmNeedStop = outroStart + 8 * 60 / D.bpm ]]
+    --elseif BgmPlaying == 'f4r' then
+    --    outroStart = D.loop[2]
+    --    BgmNeedStop = outroStart + 10 * 60 / D.bpm
+    --elseif BgmPlaying == 'f5r' then
+    --    outroStart = D.loop[2]
+    --    BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    --elseif BgmPlaying == 'f6r' then
+    --    outroStart = D.loop[2]
+    --    BgmNeedStop = outroStart + 4 * 60 / D.bpm
+    --elseif BgmPlaying == 'f7r' then
+    --    outroStart = D.loop[2]
+    --    BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    --elseif BgmPlaying == 'f8r' then
+    --    outroStart = D.loop[2]
+    --    BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    --elseif BgmPlaying == 'f9r' then
+    --    outroStart = D.loop[2]
+    --    BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    --elseif BgmPlaying == 'f10r' then
+    --    if BGM.tell() < 28 * 4 * 60 / D.bpm then
+    --        BGM.stop(6.2)
+    --        TASK.yieldT(6.2)
+    --    elseif BGM.tell() < 59 * 4 * 60 / D.bpm then
+    --        BGM.set('all', 'seek', 59 * 4 * 60 / D.bpm)
+    --        BgmNeedStop = BGM.tell() + 5 * 60 / D.bpm
+    --    elseif BGM.tell() < 77.25 * 4 * 60 / D.bpm then
+    --        BGM.stop(6.2)
+    --        TASK.yieldT(6.2)
+    --    else
+    --        outroStart = D.loop[2]
+    --        BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    --    end
+    --else
+    if BgmPlaying == 'tera' then
+        outroStart = D.loop[2] + math.random(0, 3) * 8 * 60 / D.bpm
+        BgmNeedStop = outroStart + 8 * 60 / D.bpm
+    elseif BgmPlaying == 'terar' then
+        outroStart = D.loop[2] + 96 * 60 / D.bpm
+        BgmNeedStop = outroStart + 30 * 60 / D.bpm
+    --else
+    --    BgmNeedStop = BGM.tell() + 4 * 60 / D.bpm
+    end
+    if outroStart then BGM.set('all', 'seek', outroStart) end
+    BgmLooping, BgmNeedSkip = false, false
+    if BgmNeedStop then
+        repeat TASK.yieldT(.0626) until not BgmNeedStop
+    else
+        repeat TASK.yieldT(.0626) until not BGM.isPlaying()
+    end
+    if not manual then
+        PlayBGM('f0')
+        GAME.refreshRPC()
+    end
 end
 
 -- Muisc syncing daemon
